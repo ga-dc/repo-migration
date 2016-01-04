@@ -1,6 +1,8 @@
 var fs = require("fs");
 var path = require("path");
 var base = "curriculum/";
+var exec = require('child_process').execSync;
+var env = require("./env");
 
 var rmr = function(dir) {
   if(fs.statSync(dir).isFile())
@@ -47,7 +49,6 @@ var lessons = function(dir){
 }
 
 var replaceRepoWithSingleLesson = function(lesson){
-  console.log(lesson)
   fs.readdirSync(lesson).forEach(function(f){
     fs.renameSync(lesson+"/" +f, "tmp/" + f);
   });
@@ -58,14 +59,29 @@ var replaceRepoWithSingleLesson = function(lesson){
     fs.renameSync("tmp/" +f, "curriculum/" + f);
   });
   // cd curriculum
-  // git add
-  // git commit
+  exec("cd curriculum && git add --all && git commit -m 'migrate from monolith repo'")
+  var repoName = /[^/]*$/.exec(lesson)[0];
   // create repo on github
+  var opts = JSON.stringify({
+    name: repoName
+  })
+  exec("curl -s -X POST -d '"+opts+"' https://api.github.com/orgs/super-secret/repos?access_token=" + env.token)
   // push code to github
+  exec("cd curriculum && git remote rm origin && git remote add origin git@github.com:super-secret/" + repoName + " && git push origin master")
   // reset --hard SHA
 }
 
 var us = units();
-var lessons = lessons(us[0])
-replaceRepoWithSingleLesson(lessons[0]);
+us.forEach(function(u){
+  console.log(u)
+  var ls = lessons(u)
+  ls.forEach(function(l){
+    try {
+    replaceRepoWithSingleLesson(l);
+    } catch(e){
+      console.log(e);
+   }
+    exec("cd curriculum && git reset --hard f6b2d5d && git clean -fd")
+  })
+})
 
